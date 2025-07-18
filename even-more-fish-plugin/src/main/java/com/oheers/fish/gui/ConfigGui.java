@@ -25,6 +25,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.List;
+import org.bukkit.entity.Player;
 
 public class ConfigGui {
 
@@ -140,9 +142,15 @@ public class ConfigGui {
         }
         ItemFactory factory = ItemFactory.itemFactory(itemSection);
         ItemStack item = factory.createItem(this.player.getUniqueId(), this.replacements);
-        if (item.getType() == Material.AIR) {
-            return;
+        // — apply Nexo custom-model-data if present under the 'item' section —
+        Section itemMeta = itemSection.getSection("item");
+        if (itemMeta != null && itemMeta.contains("model-data")) {
+            int customModelData = itemMeta.getInt("model-data");
+            if (customModelData >= 0) {
+                item.editMeta(meta -> meta.setCustomModelData(customModelData));
+            }
         }
+
         Section actionSection = itemSection.getSection("click-action");
         if (actionSection != null) {
             StaticGuiElement actionElement = new StaticGuiElement(character, item, click -> {
@@ -164,16 +172,30 @@ public class ConfigGui {
             gui.addElement(actionElement);
         } else {
             StaticGuiElement element = new StaticGuiElement(character, item, click -> {
-                BiConsumer<ConfigGui, GuiElement.Click> action = actions.get(itemSection.getString("click-action", ""));
-                if (action != null) {
-                    action.accept(this, click);
+                Player p = (Player) click.getWhoClicked();
+                // close GUI first
+                p.closeInventory();
+
+                // run any click-commands
+                List<String> commands = itemSection.getStringList("click-commands");
+                if (commands != null && !commands.isEmpty()) {
+                    for (String command : commands) {
+                        String cmd = command.startsWith("/")
+                                ? command.substring(1)
+                                : command;
+                        p.performCommand(cmd);
+                    }
+                } else {
+                    // fallback to GUI navigation
+                    BiConsumer<ConfigGui, GuiElement.Click> action =
+                            actions.get(itemSection.getString("click-action", ""));
+                    if (action != null) action.accept(this, click);
                 }
-                itemSection.getStringList("click-commands").forEach(command -> {
-                    Bukkit.dispatchCommand(click.getWhoClicked(), command);
-                });
                 return true;
             });
             gui.addElement(element);
+
+
         }
     }
 

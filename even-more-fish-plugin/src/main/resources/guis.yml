@@ -6,6 +6,7 @@
 button-example:
   item:
     material: diamond
+    model-data: 110007 # Model data added based on nexo specifically but perhaps works for oraxen and itemadder? TBD
     displayname: <gold>Example Button
     lore:
       - This is customizable lore.
